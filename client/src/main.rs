@@ -1,6 +1,6 @@
 use iced::{executor, window};
 use iced::widget::{button, checkbox, text, Column};
-use iced::{alignment, Application, Element, Theme, Alignment, Command, Length};
+use iced::{alignment, Application, Element, Theme, Alignment, Command, Length, Settings};
 
 struct Sender {
     now_state: bool,
@@ -44,7 +44,8 @@ impl Application for Sender {
     }
 
     fn view(&self) -> Element<Self::Message> {
-        let toggle = checkbox("checkbox", self.now_state).on_toggle(Message::Toggled);
+        let toggle = checkbox("checkbox", self.now_state)
+            .on_toggle(Message::Toggled);
         let exit = button(
             text("Exit")
                 .width(Length::Fill)
@@ -65,5 +66,15 @@ impl Application for Sender {
 }
 
 pub fn main() -> iced::Result {
-    Sender::run(iced::Settings::default())
+    let settings: Settings<()> = iced::settings::Settings  {
+        window: window::Settings {
+            size: iced::Size::new(400.0, 300.0),
+            resizable: true,
+            decorations: true,
+            position: window::Position::Centered,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    Sender::run(settings)
 }
