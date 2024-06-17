@@ -7,33 +7,46 @@ use iced::{
 use reqwest::{blocking::Client, header::CONTENT_TYPE, StatusCode};
 use serde_json::to_string;
 use std::collections::HashMap;
-use std::{error::Error, fs, io};
+use std::{error::Error, fs};
 
-const URL: &str = "http://127.0.0.1:8080/post";
+// TODO: @random6 Change address
+const URL: &str = "http://127.0.0.1:7777/post";
 
-fn read_image_file(location: &String) -> Result<String, io::Error> {
-    let file_data = fs::read(location)?;
-    Ok(STANDARD.encode(&file_data))
+fn read_image_file(location: &String) -> String {
+    match fs::read(location) {
+        Err(_) => return String::new(),
+        Ok(file_data) => return STANDARD.encode(&file_data),
+    }
 }
 
+// TODO: @random6 Add auth logic
 fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
-    let encoded_image = read_image_file(&sender.image)?;
-    let client = Client::new();
-    let params = HashMap::from([
-        ("title", sender.title.clone()),
-        ("text", sender.text.clone()),
-        ("image", encoded_image),
-    ]);
+    let params = match sender.now_state {
+        false => HashMap::from([
+            ("title", String::new()),
+            ("text", String::new()),
+            ("image", String::new()),
+        ]),
+        true => {
+            let encoded_image =
+                read_image_file(&sender.image.clone().trim_matches('"').to_string());
+            HashMap::from([
+                ("title", sender.title.clone()),
+                ("text", sender.text.clone()),
+                ("image", encoded_image),
+            ])
+        }
+    };
+
     let params = to_string(&params)?;
 
-    // println!("{params}");
+    let client = Client::new();
     let response = client
         .post(URL)
         .body(params)
         .header(CONTENT_TYPE, "application/json")
         .send()?;
 
-    // println!("{:?}",response.text());
     Ok(response.status())
 }
 
@@ -64,11 +77,11 @@ impl Application for Sender {
     fn new(_flags: ()) -> (Sender, Command<Self::Message>) {
         (
             Sender {
-                now_state: false,
+                now_state: true,
                 title: String::new(),
                 text: String::new(),
                 image: String::new(),
-                state: String::new(),
+                state: String::from("Press Uplaod button"),
             },
             Command::none(),
         )
@@ -138,7 +151,9 @@ impl Application for Sender {
         .padding(10)
         .on_press(Message::Upload);
 
-        let result_text = text(self.state.clone()).width(100);
+        let result_text = text(self.state.clone())
+            .width(300)
+            .horizontal_alignment(alignment::Horizontal::Center);
 
         let exit = button(
             text("Exit")
@@ -167,8 +182,8 @@ impl Application for Sender {
 pub fn main() -> iced::Result {
     let settings: Settings<()> = iced::settings::Settings {
         window: window::Settings {
-            size: iced::Size::new(400.0, 300.0),
-            resizable: true,
+            size: iced::Size::new(300.0, 400.0),
+            resizable: false,
             decorations: true,
             position: window::Position::Centered,
             ..Default::default()

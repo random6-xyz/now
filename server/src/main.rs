@@ -9,9 +9,7 @@ const FILE_SIZE: usize = 14000000;
 #[derive(Deserialize, Debug)]
 struct PostData {
     title: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
     text: String,
-    #[serde(skip_serializing_if = "String::is_empty")]
     image: String,
 }
 
@@ -40,13 +38,7 @@ async fn post(data: web::Json<PostData>) -> HttpResponse {
     let img_len = data.image.len();
 
     // Check size
-    if title_len <= 0
-        || title_len > 50
-        || text_len <= 0
-        || text_len > 500
-        || img_len <= 0
-        || img_len > FILE_SIZE
-    {
+    if title_len > 50 || text_len > 500 || img_len > FILE_SIZE {
         return HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).into();
     }
 
@@ -73,7 +65,8 @@ async fn get_html() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| App::new().service(get_html).service(post))
-        .bind(("0.0.0.0", 8080))?
+        .bind(("0.0.0.0", 7777))?
+        .workers(10)
         .run()
         .await
 }
