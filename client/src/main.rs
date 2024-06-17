@@ -1,28 +1,40 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use iced::widget::{button, checkbox, text, text_input, Column};
 use iced::{
     alignment, executor, window, Alignment, Application, Command, Element, Length, Renderer,
     Settings, Theme,
 };
-use reqwest::{Client, StatusCode};
+use reqwest::{blocking::Client, header::CONTENT_TYPE, StatusCode};
+use serde_json::to_string;
+use std::collections::HashMap;
+use std::{error::Error, fs, io};
 
-const URL: &str = "http://127.0.0.1:8080";
+const URL: &str = "http://127.0.0.1:8080/post";
 
-// TODO: @random6 implement function
-fn read_image_file(location: String) -> String {
-    String::new()
+fn read_image_file(location: &String) -> Result<String, io::Error> {
+    let file_data = fs::read(location)?;
+    Ok(STANDARD.encode(&file_data))
 }
 
-// TODO: @random6 complete function
-async fn post_data(sender: &Sender) -> StatusCode {
+fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
+    let encoded_image = read_image_file(&sender.image)?;
     let client = Client::new();
-    let params = [
+    let params = HashMap::from([
         ("title", sender.title.clone()),
         ("text", sender.text.clone()),
-        ("image", sender.image.clone()),
-    ];
-    let response = client.post(URL).json(&params).send().await.unwrap();
+        ("image", encoded_image),
+    ]);
+    let params = to_string(&params)?;
 
-    StatusCode::OK
+    // println!("{params}");
+    let response = client
+        .post(URL)
+        .body(params)
+        .header(CONTENT_TYPE, "application/json")
+        .send()?;
+
+    // println!("{:?}",response.text());
+    Ok(response.status())
 }
 
 struct Sender {
@@ -30,6 +42,7 @@ struct Sender {
     title: String,
     text: String,
     image: String,
+    state: String,
 }
 
 #[derive(Debug, Clone)]
@@ -55,6 +68,7 @@ impl Application for Sender {
                 title: String::new(),
                 text: String::new(),
                 image: String::new(),
+                state: String::new(),
             },
             Command::none(),
         )
@@ -64,7 +78,6 @@ impl Application for Sender {
         String::from("Now sender")
     }
 
-    // TODO: @random6 repair condition
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
             Message::NowToggled(value) => {
@@ -84,7 +97,11 @@ impl Application for Sender {
                 Command::none()
             }
             Message::Upload => {
-                post_data(&self);
+                match post_data(&self) {
+                    Ok(StatusCode::OK) => self.state = String::from("Ok"),
+                    Ok(statuscode) => self.state = String::from(statuscode.as_str()),
+                    Err(e) => self.state = format!("Error: {}", e),
+                }
                 Command::none()
             }
             Message::Exit => Command::from(window::close(window::Id::MAIN)),
@@ -121,6 +138,8 @@ impl Application for Sender {
         .padding(10)
         .on_press(Message::Upload);
 
+        let result_text = text(self.state.clone()).width(100);
+
         let exit = button(
             text("Exit")
                 .width(Length::Fill)
@@ -138,6 +157,7 @@ impl Application for Sender {
             .push(text_text_input)
             .push(image_input)
             .push(upload_button)
+            .push(result_text)
             .push(exit);
 
         Element::from(content)

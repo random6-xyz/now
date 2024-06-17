@@ -2182,8 +2182,10 @@ dependencies = [
 name = "now-client"
 version = "0.1.0"
 dependencies = [
+ "base64",
  "iced",
  "reqwest",
+ "serde_json",
 ]
 
 [[package]]
@@ -2868,6 +2870,7 @@ dependencies = [
  "base64",
  "bytes",
  "encoding_rs",
+ "futures-channel",
  "futures-core",
  "futures-util",
  "h2 0.4.5",
@@ -3514,6 +3517,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio",
+ "num_cpus",
  "parking_lot 0.12.3",
  "pin-project-lite",
  "signal-hook-registry",
