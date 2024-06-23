@@ -12,6 +12,8 @@ struct PostData {
     title: String,
     text: String,
     image: String,
+    role: String,
+    session: String,
 }
 
 // TODO: @random6 check if it works
@@ -75,11 +77,23 @@ fn check_session_role(query: web::Query<GetQuery>) -> Option<GetQueryRole> {
 }
 // function zone end
 
+// TODO: @random6 Add auth logic, URL
 #[post("/post")]
 async fn post(data: web::Json<PostData>) -> HttpResponse {
+    let role = data.role.clone();
+    let session = data.session.clone();
     let title_len = data.title.len();
     let text_len = data.text.len();
     let img_len = data.image.len();
+
+    // Check role, session
+    if session != env::var("NOW_ADMIN_SESSION").expect("No env named NOW_ADMIN_SESSION") {
+        return HttpResponse::build(StatusCode::UNAUTHORIZED).into();
+    }
+
+    if !["family", "friend", "random"].contains(&role.as_str()) {
+        return HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).into();
+    }
 
     // Check size
     if title_len > 50 || text_len > 500 || img_len > FILE_SIZE {
@@ -87,13 +101,22 @@ async fn post(data: web::Json<PostData>) -> HttpResponse {
     }
 
     // Write data to file
-    if let Err(response) = store_to_file("./data/title.txt", data.title.clone()) {
+    if let Err(response) = store_to_file(
+        format!("./data/{}/title.txt", role).as_str(),
+        data.title.clone(),
+    ) {
         return response;
     }
-    if let Err(response) = store_to_file("./data/text.txt", data.text.clone()) {
+    if let Err(response) = store_to_file(
+        format!("./data/{}/text.txt", role).as_str(),
+        data.text.clone(),
+    ) {
         return response;
     }
-    if let Err(response) = store_to_file("./data/image.txt", data.image.clone()) {
+    if let Err(response) = store_to_file(
+        format!("./data/{}/image.txt", role).as_str(),
+        data.image.clone(),
+    ) {
         return response;
     }
 

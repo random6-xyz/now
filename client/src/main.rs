@@ -6,8 +6,7 @@ use iced::{
 };
 use reqwest::{blocking::Client, header::CONTENT_TYPE, StatusCode};
 use serde_json::to_string;
-use std::collections::HashMap;
-use std::{error::Error, fs};
+use std::{collections::HashMap, error::Error, fs};
 
 // TODO: @random6 Change address
 const URL: &str = "http://127.0.0.1:7777/post";
