@@ -16,16 +16,19 @@ struct PostData {
     session: String,
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Default)]
 enum GetQueryRole {
     Friend,
     Family,
+    #[default]
     Random,
 }
 
 #[derive(Deserialize, Debug)]
 struct GetQuery {
+    #[serde(default)]
     role: GetQueryRole,
+    #[serde(default)]
     session: String,
 }
 
@@ -139,7 +142,7 @@ async fn get_html(get_query: web::Query<GetQuery>) -> impl Responder {
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| App::new().service(get_html).service(post))
         .bind(("0.0.0.0", 7777))?
-        .workers(5)
+        .workers(2)
         .run()
         .await
 }
