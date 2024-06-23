@@ -1,6 +1,7 @@
 mod utils;
 use actix_web::{get, http::StatusCode, post, web, App, HttpResponse, HttpServer, Responder};
 use serde::Deserialize;
+use std::env;
 use std::fs::File;
 use std::io::Write;
 
@@ -11,6 +12,20 @@ struct PostData {
     title: String,
     text: String,
     image: String,
+}
+
+// TODO: @random6 check if it works
+#[derive(Deserialize, Debug, PartialEq)]
+enum GetQueryRole {
+    Friend,
+    Family,
+    Random,
+}
+
+#[derive(Deserialize, Debug)]
+struct GetQuery {
+    role: GetQueryRole,
+    session: String,
 }
 
 // function zone start
@@ -28,6 +43,35 @@ fn store_to_file<T: AsRef<[u8]>>(file_name: &str, data: T) -> Result<(), HttpRes
     }
 
     Ok(())
+}
+
+// TODO: @random6 Create ENV variable in OS
+fn get_session_from_env(role: GetQueryRole) -> String {
+    match role {
+        GetQueryRole::Family => {
+            env::var("NOW_FAMILY_SESSION").expect("No env named NOW_FAMILY_SESSION")
+        }
+        GetQueryRole::Friend => {
+            env::var("NOW_FRIEND_SESSION").expect("No env named NOW_FRIEND_SESSION")
+        }
+        GetQueryRole::Random => String::new(),
+    }
+}
+
+fn check_session_role(query: web::Query<GetQuery>) -> Option<GetQueryRole> {
+    if query.role == GetQueryRole::Family
+        && query.session == get_session_from_env(GetQueryRole::Family)
+    {
+        return Some(GetQueryRole::Family);
+    } else if query.role == GetQueryRole::Friend
+        && query.session == get_session_from_env(GetQueryRole::Friend)
+    {
+        return Some(GetQueryRole::Friend);
+    } else if query.role == GetQueryRole::Random {
+        return Some(GetQueryRole::Random);
+    } else {
+        return None;
+    }
 }
 // function zone end
 
@@ -57,8 +101,16 @@ async fn post(data: web::Json<PostData>) -> HttpResponse {
 }
 
 #[get("/")]
-async fn get_html() -> impl Responder {
-    let html = utils::html::generate_html();
+async fn get_html(get_query: web::Query<GetQuery>) -> impl Responder {
+    let html: String;
+    match check_session_role(get_query) {
+        Some(GetQueryRole::Family) => html = utils::html::generate_html(GetQueryRole::Family),
+        Some(GetQueryRole::Friend) => html = utils::html::generate_html(GetQueryRole::Friend),
+        Some(GetQueryRole::Random) | None => {
+            html = utils::html::generate_html(GetQueryRole::Random)
+        }
+    }
+
     HttpResponse::Ok().body(html)
 }
 
@@ -66,7 +118,7 @@ async fn get_html() -> impl Responder {
 async fn main() -> std::io::Result<()> {
     HttpServer::new(|| App::new().service(get_html).service(post))
         .bind(("0.0.0.0", 7777))?
-        .workers(10)
+        .workers(5)
         .run()
         .await
 }
