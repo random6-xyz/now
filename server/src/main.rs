@@ -16,7 +16,6 @@ struct PostData {
     session: String,
 }
 
-// TODO: @random6 check if it works
 #[derive(Deserialize, Debug, PartialEq)]
 enum GetQueryRole {
     Friend,
@@ -77,7 +76,6 @@ fn check_session_role(query: web::Query<GetQuery>) -> Option<GetQueryRole> {
 }
 // function zone end
 
-// TODO: @random6 Add auth logic, URL
 #[post("/post")]
 async fn post(data: web::Json<PostData>) -> HttpResponse {
     let role = data.role.clone();

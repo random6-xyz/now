@@ -1,15 +1,40 @@
 use base64::{engine::general_purpose::STANDARD, Engine as _};
-use iced::widget::{button, checkbox, text, text_input, Column};
+use iced::widget::{button, checkbox, combo_box, text, text_input, Column};
 use iced::{
     alignment, executor, window, Alignment, Application, Command, Element, Length, Renderer,
     Settings, Theme,
 };
 use reqwest::{blocking::Client, header::CONTENT_TYPE, StatusCode};
 use serde_json::to_string;
-use std::{collections::HashMap, error::Error, fs};
+use std::{collections::HashMap, env, error::Error, fs};
 
 // TODO: @random6 Change address
 const URL: &str = "http://127.0.0.1:7777/post";
+
+#[derive(Clone, Debug)]
+enum Role {
+    Family,
+    Friend,
+    Random,
+}
+
+impl Role {
+    const ALL: [Role; 3] = [Role::Family, Role::Friend, Role::Random];
+}
+
+impl std::fmt::Display for Role {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Role::Family => "family",
+                Role::Friend => "friend",
+                Role::Random => "random",
+            }
+        )
+    }
+}
 
 fn read_image_file(location: &String) -> String {
     match fs::read(location) {
@@ -18,10 +43,18 @@ fn read_image_file(location: &String) -> String {
     }
 }
 
-// TODO: @random6 Add auth logic
 fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
+    let role: String = match sender.selected_role {
+        Some(Role::Family) => "family".into(),
+        Some(Role::Friend) => "friend".into(),
+        Some(Role::Random) => "random".into(),
+        None => panic!("Unprocessable role"),
+    };
+
     let params = match sender.now_state {
         false => HashMap::from([
+            ("role", role),
+            ("session", sender.session.clone()),
             ("title", String::new()),
             ("text", String::new()),
             ("image", String::new()),
@@ -30,6 +63,8 @@ fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
             let encoded_image =
                 read_image_file(&sender.image.clone().trim_matches('"').to_string());
             HashMap::from([
+                ("role", role),
+                ("session", sender.session.clone()),
                 ("title", sender.title.clone()),
                 ("text", sender.text.clone()),
                 ("image", encoded_image),
@@ -51,6 +86,9 @@ fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
 
 struct Sender {
     now_state: bool,
+    roles: combo_box::State<Role>,
+    selected_role: Option<Role>,
+    session: String,
     title: String,
     text: String,
     image: String,
@@ -63,6 +101,7 @@ enum Message {
     TextTitle(String),
     TextText(String),
     TextImage(String),
+    RoleSelected(Role),
     Upload,
     Exit,
 }
@@ -77,6 +116,9 @@ impl Application for Sender {
         (
             Sender {
                 now_state: true,
+                roles: combo_box::State::new(Role::ALL.to_vec()),
+                selected_role: Some(Role::Family),
+                session: env::var("NOW_SESSION").expect("NO env named NOW_SESSION"),
                 title: String::new(),
                 text: String::new(),
                 image: String::new(),
@@ -108,6 +150,10 @@ impl Application for Sender {
                 self.image = image_input;
                 Command::none()
             }
+            Message::RoleSelected(role) => {
+                self.selected_role = Some(role);
+                Command::none()
+            }
             Message::Upload => {
                 match post_data(&self) {
                     Ok(StatusCode::OK) => self.state = String::from("Ok"),
@@ -122,6 +168,13 @@ impl Application for Sender {
 
     fn view(&self) -> Element<Self::Message> {
         let now_toggle = checkbox("Now Status", self.now_state).on_toggle(Message::NowToggled);
+
+        let role_combo = combo_box(
+            &self.roles,
+            "Role",
+            self.selected_role.as_ref(),
+            Message::RoleSelected,
+        );
 
         let title_input: iced::widget::TextInput<'_, Message, Theme, Renderer> =
             text_input("Title", &self.title)
@@ -167,6 +220,7 @@ impl Application for Sender {
             .align_items(Alignment::Center)
             .spacing(20)
             .push(now_toggle)
+            .push(role_combo)
             .push(title_input)
             .push(text_text_input)
             .push(image_input)
@@ -181,7 +235,7 @@ impl Application for Sender {
 pub fn main() -> iced::Result {
     let settings: Settings<()> = iced::settings::Settings {
         window: window::Settings {
-            size: iced::Size::new(300.0, 400.0),
+            size: iced::Size::new(300.0, 425.0),
             resizable: false,
             decorations: true,
             position: window::Position::Centered,
