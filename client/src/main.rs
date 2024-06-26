@@ -8,9 +8,6 @@ use reqwest::{blocking::Client, header::CONTENT_TYPE, StatusCode};
 use serde_json::to_string;
 use std::{collections::HashMap, env, error::Error, fs};
 
-// TODO: @random6 Change address
-const URL: &str = "http://127.0.0.1:7777/post";
-
 #[derive(Clone, Debug)]
 enum Role {
     Family,
@@ -74,9 +71,11 @@ fn post_data(sender: &Sender) -> Result<StatusCode, Box<dyn Error>> {
 
     let params = to_string(&params)?;
 
+    let url = env::var("NOW_URL").expect("NO env named NOW_URL") + "/post";
+
     let client = Client::new();
     let response = client
-        .post(URL)
+        .post(url)
         .body(params)
         .header(CONTENT_TYPE, "application/json")
         .send()?;

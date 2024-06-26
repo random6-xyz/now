@@ -1,7 +1,12 @@
 mod utils;
-use actix_web::{get, http::StatusCode, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{
+    get, http::StatusCode, middleware::Logger, post, web, App, HttpResponse, HttpServer, Responder,
+};
+use env_logger;
+use log::info;
 use serde::Deserialize;
 use std::env;
+use std::fmt::Debug;
 use std::fs::File;
 use std::io::Write;
 
@@ -49,7 +54,6 @@ fn store_to_file<T: AsRef<[u8]>>(file_name: &str, data: T) -> Result<(), HttpRes
     Ok(())
 }
 
-// TODO: @random6 Create ENV variable in OS
 fn get_session_from_env(role: GetQueryRole) -> String {
     match role {
         GetQueryRole::Family => {
@@ -101,6 +105,12 @@ async fn post(data: web::Json<PostData>) -> HttpResponse {
         return HttpResponse::build(StatusCode::UNPROCESSABLE_ENTITY).into();
     }
 
+    // Log
+    info!(
+        "\nPosted - {}\ntitle:{}\ntext: {}\n",
+        role, &data.title, &data.text
+    );
+
     // Write data to file
     if let Err(response) = store_to_file(
         format!("./data/{}/title.txt", role).as_str(),
@@ -128,10 +138,17 @@ async fn post(data: web::Json<PostData>) -> HttpResponse {
 async fn get_html(get_query: web::Query<GetQuery>) -> impl Responder {
     let html: String;
     match check_session_role(get_query) {
-        Some(GetQueryRole::Family) => html = utils::html::generate_html(GetQueryRole::Family),
-        Some(GetQueryRole::Friend) => html = utils::html::generate_html(GetQueryRole::Friend),
+        Some(GetQueryRole::Family) => {
+            html = utils::html::generate_html(GetQueryRole::Family);
+            info!("\nGet - family\n");
+        }
+        Some(GetQueryRole::Friend) => {
+            html = utils::html::generate_html(GetQueryRole::Friend);
+            info!("\nGet - friend\n");
+        }
         Some(GetQueryRole::Random) | None => {
-            html = utils::html::generate_html(GetQueryRole::Random)
+            html = utils::html::generate_html(GetQueryRole::Random);
+            info!("\nGet - random\n");
         }
     }
 
@@ -140,9 +157,16 @@ async fn get_html(get_query: web::Query<GetQuery>) -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| App::new().service(get_html).service(post))
-        .bind(("0.0.0.0", 7777))?
-        .workers(2)
-        .run()
-        .await
+    env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
+
+    HttpServer::new(|| {
+        App::new()
+            .service(get_html)
+            .service(post)
+            .wrap(Logger::default())
+    })
+    .bind(("0.0.0.0", 7777))?
+    .workers(2)
+    .run()
+    .await
 }
