@@ -165,7 +165,7 @@ async fn main() -> std::io::Result<()> {
             .service(post)
             .wrap(Logger::default())
     })
-    .bind(("0.0.0.0", 7777))?
+    .bind(("0.0.0.0", 80))?
     .workers(2)
     .run()
     .await
